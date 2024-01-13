@@ -1,135 +1,173 @@
 import 'dart:convert';
-import 'package:google_sign_in/google_sign_in.dart';
-import 'package:googleapis_auth/googleapis_auth.dart' as auth;
+import 'dart:developer';
 import 'package:http/http.dart' as http;
-import 'package:url_launcher/url_launcher.dart';
-import 'package:youtube_live/Utils/constants.dart';
+import 'package:flutter/foundation.dart';
+import 'package:get/get.dart';
+import 'dart:io';
+import 'dart:async';
+import '../Utils/constants.dart';
 
 
-class YouTubeApiManager {
 
-  GoogleSignIn googleSignIn = GoogleSignIn(scopes: ['https://www.googleapis.com/auth/youtube.force-ssl']);
 
-  /// startYouTubeLiveStream Api calling
-  Future<void> startYouTubeLiveStream( String? accessToken) async {
+class APIManager {
+  static String baseUrl = 'https://youtube.googleapis.com/youtube/v3/';
 
-    final response = await http.get(Uri.parse('${baseUrl}liveStreams?mine=true&key=AIzaSyCPRh3I0o0ea7kSxnTMy4xyEqAJSNTk8KA HTTP/1.1'),
-        headers: {'Authorization': accessToken ?? "",
-          'Accept': 'application/json'});
-
-    if (response.statusCode == 200) {
-      final Map<String, dynamic> data = json.decode(response.body);
-      print('Live Stream started successfully. Stream ID: ${data["id"]}');
-      print(response.body);
-      getStreamID(accessToken);
-      successSnackBar(message:'Live Stream started successfully. Stream ID: ${data["id"]}');
-      // You may want to save the stream ID or launch the YouTube app with the live stream URL.
-    } else {
-      print('Error starting live stream: ${response.statusCode}');
-      print('Response body: ${response.body}');
-      errorSnackBar(title:"${response.statusCode}",message: "The user is not enabled for live streaming.");
+  /// Used to call post API method, pass the url and param for api call
+  Future<dynamic> postAPICall(String url, Map param, {bool isLoaderShow = true}) async {
+    /// print in debug mode
+    if (kDebugMode) {
+      print("Calling API: $url");
+      print("Calling parameters: $param");
     }
+    var responseJson;
+    try {
+      /// Show progress loader
+      if (isLoaderShow) {
+        showProgressIndicator();
+      }
+      /// call post api for given url and parameters
+      var request = http.MultipartRequest("POST", Uri.parse(url));
+      for (var item in param.keys) {
+        request.fields[item] = param[item];
+      }
+      if (kDebugMode) {
+        print(request.fields);
+      }
+      var getResponse = await request.send();
+      var responseData = await http.Response.fromStream(getResponse);
+      if (kDebugMode) {
+        print("------------------------------ POST METHOD RESPONSE ------------------------------");
+        print(" ${responseData.body}");
+        print("----------------------------------------------------------------------------------");
+      }
 
+      /// Check api response and handle exception
+      responseJson = _response(responseData);
+    } on SocketException {
+      /// Show error message on SocketException
+      errorSnackBar(message: 'No Internet Connection');
+
+
+    } on TimeoutException catch (_) {
+      /// Throw error message on TimeoutException
+      throw  errorSnackBar(message: 'Server Error');
+
+    } finally {
+      /// dismiss progress loader
+      if (isLoaderShow) {
+        dismissProgressIndicator();
+      }
+    }
+    return responseJson;
   }
 
-  Future<void> getStreamID(String? accessToken) async {
+  /// Used to call get API method, pass the url for api call
+  ///
+  /// `APIManager().getAPICall("https://.....");`
+  Future<dynamic> getAPICall({required String url,required String accessToken,bool isLoaderShow = true}) async {
+    /// print in debug mode
+    if (kDebugMode) {
+      print("Calling API: $url");
+    }
+
+    var responseJson;
     try {
-      final response = await http.post(
-        Uri.parse('${baseUrl}liveBroadcasts?part=snippet,contentDetails,status&key=YOUR_API_KEY'),
-        headers: {
-          'Authorization': accessToken ?? "",
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
+      /// Show progress loader
+      ///
+      if (isLoaderShow) {
+        showProgressIndicator();
+      }
+      // String accessToken = GetStorage().read(authToken) ?? "";
+      print("auth token: $accessToken");
+      /// Set header for send request
+      var headers = accessToken == ""
+          ? {
+        "Accept": "application/json",
+      }
+          : {"Authorization": accessToken, 'Accept': 'application/json'};
+
+      /// call post api for given url and parameters
+      final response = await http
+          .get(
+        Uri.parse(url),
+        headers: headers,
+      )
+          .timeout(
+        const Duration(minutes: 2),
+      )
+          .onError(
+            (error, stackTrace) {
+          throw  errorSnackBar(message: 'No Internet Connection');
+          // errorSnackBar(message: 'Server Down, Please try after some time!');
+
         },
-        body: jsonEncode({
-          "snippet": {
-            "title": "My Live Stream",
-            "description": "A live stream from Flutter app",
-          },
-          "status": {
-            "privacyStatus": "public",
-          },
-        }),
       );
 
-      if (response.statusCode == 200) {
-        final Map<String, dynamic> data = json.decode(response.body);
-        final String streamId = data['id'];
-        print('Live Stream started successfully. Stream ID: $streamId');
-        successSnackBar(message: 'Live Stream started successfully. Stream ID: $streamId');
-        /// get a live stream url
-        final String liveStreamUrl = data['items'][0]['cdn']['ingestionInfo']['ingestionAddress'];
-        print('Live Stream URL: $liveStreamUrl');
-        /// redirect to live
-        launchYouTubeLiveStream(liveStreamUrl);
-      } else {
-        print('Error starting live stream: ${response.statusCode}');
-        print('Response body: ${response.body}');
-        errorSnackBar(title: "${response.statusCode}", message: "Error starting live stream.");
+      /// print response body of api
+      if (kDebugMode) {
+        // ignore: prefer_interpolation_to_compose_strings
+        print("\n-----------------------------------------------------------------------------------\n");
+        print(response.request);
+        log("GET METHOD RESPONSE --> ${response.body}\n-----------------------------------------------------------------------------------\n\n\n");
       }
-    } catch (e) {
-      print('Exception: $e');
-      errorSnackBar(message: "Exception occurred: $e");
-    }
-  }
-  /// SignIn with google
-  Future<void> signInWithGoogle() async {
-    try {
-      await googleSignIn.signIn();
-      print("Current User Data..........................${googleSignIn.currentUser}");
-      // GoogleSignInAccount? account = YouTubeApiManager().googleSignIn.currentUser;
-      GoogleSignInAccount? account = googleSignIn.currentUser;
-      if (account != null) {
-        Map<String, String> authHeaders = await account.authHeaders;
-        String accessToken = authHeaders["Authorization"] ?? "";
-        await startYouTubeLiveStream(accessToken);
+
+      /// Check api response and handle exception
+      responseJson = _response(response);
+    } on SocketException {
+      /// Show error message on SocketException
+      Get.showSnackbar(errorSnackBar(message: 'No Internet Connection'));
+      throw errorSnackBar(message :'No Internet Connection');
+    } on TimeoutException catch (_) {
+      /// Throw error message on TimeoutException
+      throw  errorSnackBar(message: 'Server Error');
+    } finally {
+      /// Hide progress loader
+      if (isLoaderShow) {
+        dismissProgressIndicator();
       }
-    } catch (error) {
-      print('Error signing in with Google: $error');
     }
+    return responseJson;
   }
 
-  /// Get Access Token
-  Future<String?> getAccessToken() async {
-    GoogleSignInAccount? account = googleSignIn.currentUser;
-    if (account != null) {
-      Map<String, String> authHeaders = await account.authHeaders;
-      return authHeaders["Authorization"];
-    }
-    return null;
-  }
 
-/// Create a Client for refreshing auth client
-  Future<void> createClient(String accessToken) async {
-    auth.AccessCredentials credentials = auth.AccessCredentials(
-      auth.AccessToken('Bearer', accessToken, DateTime.now().toUtc().add(Duration(hours: 1))),
-      null,
-      ['https://www.googleapis.com/auth/youtube.force-ssl'],
-    );
+  /// Check response status and handle exception
+  dynamic _response(http.Response response) {
+    print("${response.statusCode}");
+    switch (response.statusCode) {
 
-    try {
-      auth.AutoRefreshingAuthClient client = await auth.autoRefreshingClient(
-        auth.ClientId(
-          '935842735899-i1pui5tdt05l47pgk8hivltimfrsamjn.apps.googleusercontent.com',
-          '',
-        ),
-        credentials,
-        http.Client(),
-      );
+    /// Successfully get api response
+      case 200:
+
+        final Map<String, dynamic> responseJson = json.decode(
+          response.body,
+        );
+        return responseJson;
+
+    /// Successfully get api response
+      case 201:
+        final Map<String, dynamic> responseJson = json.decode(
+          response.body,
+        );
+        return responseJson;
 
 
-    } catch (e) {
-      print('Error creating client: $e');
-    }
-  }
+    /// Bad request need to check url
+      case 400:
+        return errorSnackBar(message: "Invalid request data");
 
-  /// redirect to live url
-  Future<void> launchYouTubeLiveStream(String liveStreamUrl) async {
-    if (await canLaunch(liveStreamUrl)) {
-      await launch(liveStreamUrl);
-      print("Live UrL .............$liveStreamUrl");
-    } else {
-      print('Could not launch $liveStreamUrl');
+    /// Authorisation token invalid
+      case 403:
+        return errorSnackBar(message: "Unauthorized access");
+
+
+    /// Error occured while Communication with Server
+      case 500:
+        return errorSnackBar(message: "Unauthorized access");
+
+      default:
+        return errorSnackBar(message: "An error occurred while Communication with Server with StatusCode: ${response.statusCode}");
+
     }
   }
 }

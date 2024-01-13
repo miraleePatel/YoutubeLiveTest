@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:sizer/sizer.dart';
 import '../Api/api_manager.dart';
+import '../Controller/live_stream_controller.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -10,6 +12,7 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  LiveStreamController liveStreamController = Get.put(LiveStreamController());
 
   @override
   Widget build(BuildContext context) {
@@ -19,7 +22,7 @@ class _HomeScreenState extends State<HomeScreen> {
         body: Center(
       child: ElevatedButton(
         onPressed: () async {
-          await YouTubeApiManager().signInWithGoogle();
+          await  liveStreamController.signInWithGoogle();
         },
         child: Text("Live Streaming"),
       ),

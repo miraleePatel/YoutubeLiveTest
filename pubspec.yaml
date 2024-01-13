@@ -39,6 +39,8 @@ dependencies:
   get: ^4.6.6
   googleapis: any
   googleapis_auth: any
+  get_storage: ^2.1.1
+  flutter_easyloading: ^3.0.5
   http:
   google_sign_in:
   flutter_launcher_icons: ^0.10.0

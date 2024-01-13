@@ -1,9 +1,26 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_easyloading/flutter_easyloading.dart';
 import 'package:get/get.dart';
 
 
-String baseUrl = "https://youtube.googleapis.com/youtube/v3/";
-String access_token = "access_token";
+///
+/// Show progress indicator when API call Or any other async method call
+///
+showProgressIndicator() {
+  return EasyLoading.show(
+    maskType: EasyLoadingMaskType.black,
+    status: 'Loading',
+    dismissOnTap: false,
+  );
+}
+
+///
+/// Dismiss progress indicator after API calling Or any other async method calling
+///
+dismissProgressIndicator() {
+  return EasyLoading.dismiss();
+}
+
 
 ///
 /// Snackbar for showing error message
