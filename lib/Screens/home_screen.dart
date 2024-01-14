@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:sizer/sizer.dart';
-import '../Api/api_manager.dart';
 import '../Controller/live_stream_controller.dart';
 
 class HomeScreen extends StatefulWidget {

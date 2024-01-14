@@ -8,59 +8,71 @@ import 'dart:async';
 import '../Utils/constants.dart';
 
 
-
-
 class APIManager {
   static String baseUrl = 'https://youtube.googleapis.com/youtube/v3/';
 
-  /// Used to call post API method, pass the url and param for api call
-  Future<dynamic> postAPICall(String url, Map param, {bool isLoaderShow = true}) async {
-    /// print in debug mode
-    if (kDebugMode) {
-      print("Calling API: $url");
-      print("Calling parameters: $param");
-    }
+  ///***************************** Used to call post API method, pass the url and param for api call *****************************///
+
+  Future<dynamic> postAPICall({required String url, required Map params,required String accessToken, bool isLoaderShow = true}) async {
     var responseJson;
+    print("[Calling API] => $url");
+    print("[Calling parameters] => $params");
+
     try {
-      /// Show progress loader
-      if (isLoaderShow) {
+      ///***************************** Show progress loader *****************************///
+
+      if (isLoaderShow == true) {
         showProgressIndicator();
       }
-      /// call post api for given url and parameters
-      var request = http.MultipartRequest("POST", Uri.parse(url));
-      for (var item in param.keys) {
-        request.fields[item] = param[item];
-      }
-      if (kDebugMode) {
-        print(request.fields);
-      }
-      var getResponse = await request.send();
-      var responseData = await http.Response.fromStream(getResponse);
-      if (kDebugMode) {
-        print("------------------------------ POST METHOD RESPONSE ------------------------------");
-        print(" ${responseData.body}");
-        print("----------------------------------------------------------------------------------");
-      }
 
-      /// Check api response and handle exception
-      responseJson = _response(responseData);
+      ///***************************** Set header for send request *****************************///
+
+      var headers = accessToken == ""
+          ? {
+        'Accept': 'application/json',
+        "Content-Type": "application/json",
+      }
+          : {
+        'Authorization': accessToken ?? "",
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+      };
+
+      final response = await http
+          .post(
+        Uri.parse(url),
+        headers: headers,
+        body: json.encode(params),
+      )
+          .timeout(const Duration(seconds: 15))
+          .onError(
+            (error, stackTrace) {
+              throw errorSnackBar(message: 'No Internet Connection');
+
+        },
+      );
+
+      log("<-------------------- [POST API RESPONSE] -------------------->");
+      log(response.body);
+      log('<------------------------------------------------------------->');
+      responseJson = _response(response);
     } on SocketException {
-      /// Show error message on SocketException
-      errorSnackBar(message: 'No Internet Connection');
+      ///***************************** Show error message on SocketException *****************************///
 
-
-    } on TimeoutException catch (_) {
-      /// Throw error message on TimeoutException
-      throw  errorSnackBar(message: 'Server Error');
-
+      throw errorSnackBar(message: 'No Internet Connection');
+        } on TimeoutException catch (_) {
+      ///***************************** Throw error message on TimeoutException *****************************///
+      throw errorSnackBar(message: 'Server Error');
     } finally {
-      /// dismiss progress loader
-      if (isLoaderShow) {
+      ///***************************** Hide progress loader *****************************///
+
+      if (isLoaderShow == true) {
         dismissProgressIndicator();
       }
     }
     return responseJson;
   }
+
 
   /// Used to call get API method, pass the url for api call
   ///
